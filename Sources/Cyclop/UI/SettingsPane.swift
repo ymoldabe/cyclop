@@ -17,6 +17,7 @@ struct SettingsPane: View {
     @State private var saveClipboardImages = NotchViewModel.saveClipboardImagesEnabled
     @State private var allDisplays = NotchGeometry.showsOnAllDisplays
     @State private var fullSizeNotch = NotchGeometry.drawsFullSizeNotch
+    @State private var notchMarker = NotchGeometry.showsDrawnNotchMarker
     @State private var watchScreenshotFolder = false
     @State private var screenshotUsage: (files: Int, bytes: Int64) = (0, 0)
 
@@ -61,6 +62,11 @@ struct SettingsPane: View {
                         symbol: "rectangle.topthird.inset.filled",
                         title: localized("Full-Height Notch Without a Cutout"),
                         isOn: fullSizeNotchBinding
+                    )
+                    toggleRow(
+                        symbol: "rectangle.topthird.inset.filled",
+                        title: localized("Show Notch Marker Without a Cutout"),
+                        isOn: notchMarkerBinding
                     )
                 }
 
@@ -135,6 +141,7 @@ struct SettingsPane: View {
             saveClipboardImages = NotchViewModel.saveClipboardImagesEnabled
             allDisplays = NotchGeometry.showsOnAllDisplays
             fullSizeNotch = NotchGeometry.drawsFullSizeNotch
+            notchMarker = NotchGeometry.showsDrawnNotchMarker
             watchScreenshotFolder = screenshots.isEnabled
             refreshUsage()
         }
@@ -213,6 +220,16 @@ struct SettingsPane: View {
             set: { wants in
                 fullSizeNotch = wants
                 NotchGeometry.drawsFullSizeNotch = wants
+            }
+        )
+    }
+
+    private var notchMarkerBinding: Binding<Bool> {
+        Binding(
+            get: { notchMarker },
+            set: { wants in
+                notchMarker = wants
+                NotchGeometry.showsDrawnNotchMarker = wants
             }
         )
     }

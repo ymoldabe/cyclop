@@ -138,3 +138,15 @@
 "Keyboard and trackpad are locked" = "Keyboard and trackpad are locked";
 "Hold Esc or − for %d s" = "Hold Esc or − for %d s";
 "Unlocks by itself in %d s" = "Unlocks by itself in %d s";
+
+/* Timer tab */
+"Timer" = "Timer";
+"Focus" = "Focus";
+"Break" = "Break";
+"Long Break" = "Long Break";
+"%d min" = "%d min";
+
+/* Sound tab */
+"Sound" = "Sound";
+"No output devices" = "No output devices";
+"Show Notch Marker Without a Cutout" = "Show Notch Marker Without a Cutout";

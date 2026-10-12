@@ -5,6 +5,13 @@ struct NotchContentView: View {
     /// This screen's share of the panel. Everything the pointer decides is
     /// here; everything shown is in `vm`, the same on every display.
     @ObservedObject var panel: PanelState
+    @ObservedObject private var timer: FocusTimer
+
+    init(vm: NotchViewModel, panel: PanelState) {
+        self.vm = vm
+        self.panel = panel
+        _timer = ObservedObject(wrappedValue: vm.timer)
+    }
 
     private var isOpen: Bool { panel.isActive }
     private var size: CGSize { panel.bodySize }
@@ -23,9 +30,10 @@ struct NotchContentView: View {
     /// it is — a picture of a hole with no hole behind it.
     ///
     /// A drawn notch is the opposite case: there the shape *is* the notch, and
-    /// it has to be visible wherever the panel stands. So the rule is narrow —
-    /// only the display that has a real cutout, and only while the panel has
-    /// nothing of its own to show.
+    /// it is visible wherever the panel stands — unless Settings ask for it to
+    /// be hidden while folded, which is the default. Otherwise the rule is
+    /// narrow — only the display that has a real cutout, and only while the
+    /// panel has nothing of its own to show.
     ///
     /// "Nothing of its own" is asked of the body rather than of `isOpen`, and
     /// the difference is not stylistic. On a hole the body is the notch exactly
@@ -36,7 +44,12 @@ struct NotchContentView: View {
     /// state would draw its text onto a transparent background: white letters
     /// standing on the desktop with nothing behind them.
     private var paintsShape: Bool {
-        !panel.geometry.isPhysical || size != panel.geometry.notchSize
+        if !isOpen, !panel.showsTimerStrip, panel.geometry.hidesWhenCollapsed { return false }
+        return !panel.geometry.isPhysical || size != panel.geometry.notchSize
+    }
+
+    private var showsCompactTimer: Bool {
+        !isOpen && panel.showsTimerStrip && !panel.geometry.isPhysical
     }
 
     var body: some View {
@@ -47,12 +60,18 @@ struct NotchContentView: View {
                 topRadius: topRadius,
                 bottomRadius: isOpen ? Theme.openBottomRadius : Theme.collapsedBottomRadius
             )
-            .fill(paintsShape ? Color.black : Color.clear)
+            .fill(paintsShape ? Color.black.opacity(showsCompactTimer ? 0.7 : 1) : Color.clear)
             .frame(width: size.width + 2 * topRadius, height: size.height)
             .shadow(color: .black.opacity(isOpen ? 0.5 : 0), radius: 18, y: 8)
 
             VStack(spacing: 0) {
-                header
+                if showsCompactTimer {
+                    TimerCountdown(timer: timer, size: 10.5)
+                        .frame(width: size.width, height: size.height)
+                        .transition(.opacity)
+                } else {
+                    header
+                }
                 if isOpen {
                     content
                         .transition(.opacity)
@@ -65,6 +84,7 @@ struct NotchContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(Theme.openAnimation, value: isOpen)
         .animation(Theme.paneAnimation, value: vm.tab)
+        .animation(Theme.openAnimation, value: panel.showsTimerStrip)
     }
 
     // MARK: - Header
@@ -85,6 +105,12 @@ struct NotchContentView: View {
                     .padding(.leading, 16)
                     .id(vm.tab)
                     .transition(.opacity)
+            } else if panel.showsTimerStrip {
+                Image(systemName: timer.phase.symbol)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(timer.isRunning ? Color.white : Theme.tertiary)
+                    .frame(width: NotchGeometry.timerWing)
+                    .transition(.opacity)
             }
             Spacer(minLength: 0)
             Color.clear.frame(width: panel.geometry.notchSize.width, height: 1)
@@ -92,6 +118,10 @@ struct NotchContentView: View {
             if isOpen {
                 trailing
                     .padding(.trailing, 16)
+                    .transition(.opacity)
+            } else if panel.showsTimerStrip {
+                TimerCountdown(timer: timer, size: 12)
+                    .frame(width: NotchGeometry.timerWing)
                     .transition(.opacity)
             }
         }
@@ -130,6 +160,10 @@ struct NotchContentView: View {
             CurrencyRateDate(currencies: vm.currencies)
         case .notes:
             NotesCounter(notes: vm.notes)
+        case .timer:
+            counter(timer.completedFocus)
+        case .audio:
+            EmptyView()
         case .teleprompter:
             EmptyView()
         case .utilities:
@@ -201,6 +235,10 @@ struct NotchContentView: View {
             CurrencyPane(currencies: vm.currencies, wantsKeyboard: $panel.wantsKeyboard)
         case .notes:
             NotesPane(notes: vm.notes, privacy: vm.privacy, wantsKeyboard: $panel.wantsKeyboard)
+        case .timer:
+            TimerPane(timer: timer)
+        case .audio:
+            AudioPane(audio: vm.audio)
         case .teleprompter:
             TeleprompterPane(prompter: vm.teleprompter, wantsKeyboard: $panel.wantsKeyboard)
         case .utilities:
@@ -269,7 +307,7 @@ private struct Rail: View {
                 } label: {
                     Image(systemName: tab.symbol)
                         .font(.system(size: 12, weight: .medium))
-                        .frame(width: 30, height: panel.geometry.railIconHeight)
+                        .frame(width: 30, height: panel.railIconHeight)
                         .background(
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
                                 .fill(fill(for: tab))

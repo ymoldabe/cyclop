@@ -4,7 +4,7 @@ import Combine
 @MainActor
 final class NotchViewModel: ObservableObject {
     enum Tab: String, CaseIterable, Identifiable {
-        case media, shelf, clipboard, snippets, calendar, translate, currency, notes, teleprompter, utilities, settings
+        case media, shelf, clipboard, snippets, calendar, translate, currency, notes, timer, audio, teleprompter, utilities, settings
         var id: String { rawValue }
 
         var symbol: String {
@@ -17,6 +17,8 @@ final class NotchViewModel: ObservableObject {
             case .translate: return "translate"
             case .currency: return "dollarsign.circle"
             case .notes: return "note.text"
+            case .timer: return "timer"
+            case .audio: return "headphones"
             case .teleprompter: return "text.viewfinder"
             case .utilities: return "wrench.and.screwdriver.fill"
             case .settings: return "gearshape.fill"
@@ -33,6 +35,8 @@ final class NotchViewModel: ObservableObject {
             case .translate: return localized("Translate")
             case .currency: return localized("Currency")
             case .notes: return localized("Notes")
+            case .timer: return localized("Timer")
+            case .audio: return localized("Sound")
             case .teleprompter: return localized("Teleprompter")
             case .utilities: return localized("Utilities")
             case .settings: return localized("Settings")
@@ -73,7 +77,7 @@ final class NotchViewModel: ObservableObject {
         /// calendar, so it sits last, furthest from the tabs people actually
         /// rest on.
         static let leftRail: [Tab] = [.media, .shelf, .clipboard, .snippets, .calendar, .translate]
-        static let rightRail: [Tab] = [.notes, .currency, .teleprompter, .utilities, .settings]
+        static let rightRail: [Tab] = [.notes, .timer, .audio, .currency, .teleprompter, .utilities, .settings]
     }
 
     /// What every screen's panel adds up to, kept by `NotchController`: this
@@ -151,7 +155,9 @@ final class NotchViewModel: ObservableObject {
             screenshotFolder.resumeIfEnabled()
         case .currency:
             currencies.start()
-        case .snippets, .translate, .notes, .teleprompter, .utilities, .settings:
+        case .audio:
+            audio.start()
+        case .snippets, .translate, .notes, .timer, .teleprompter, .utilities, .settings:
             break
         }
     }
@@ -163,6 +169,8 @@ final class NotchViewModel: ObservableObject {
         case .calendar: calendar.stop()
         case .shelf: screenshotFolder.stop()
         case .currency: currencies.stop()
+        case .timer: timer.reset()
+        case .audio: audio.stop()
         // Taking the tab off the rail with the screen still covered would
         // leave the tap installed and no way back to it.
         case .utilities: keyboardLock.unlock()
@@ -211,6 +219,7 @@ final class NotchViewModel: ObservableObject {
             // Rates update on a timer already; opening the tab asks once more
             // so a stale cache from the last few hours does not sit there.
             if tab == .currency { currencies.refreshIfNeeded() }
+            if tab == .audio { audio.refresh() }
             // Leaving the notes sweeps out the blank ones — they cost one
             // hover to recreate, and a trail of empty cards is the clutter a
             // scratchpad exists to avoid.
@@ -245,6 +254,8 @@ final class NotchViewModel: ObservableObject {
     let snippets: SnippetStore
     let notes: NoteStore
     let teleprompter: TeleprompterStore
+    let timer: FocusTimer
+    let audio: AudioOutputStore
     /// Shared by every pane that shows something worth not showing.
     let privacy = PrivacyMode()
     /// Here rather than in the controller, which now rebuilds a window per
@@ -265,6 +276,8 @@ final class NotchViewModel: ObservableObject {
         self.snippets = SnippetStore()
         self.notes = NoteStore()
         self.teleprompter = TeleprompterStore()
+        self.timer = FocusTimer()
+        self.audio = AudioOutputStore()
 
         // The panel header reads through to the stores — counters, the source
         // name, the equalizer. Nested ObservableObjects do not propagate on

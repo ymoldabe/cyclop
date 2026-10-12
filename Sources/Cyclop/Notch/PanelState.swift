@@ -50,7 +50,16 @@ final class PanelState: ObservableObject {
     }
 
     /// Size of the visible body for the current state.
-    var bodySize: CGSize { isActive ? openBodySize : geometry.collapsedSize }
+    var bodySize: CGSize {
+        if isActive { return openBodySize }
+        return showsTimerStrip ? geometry.timerStripSize : geometry.collapsedSize
+    }
+
+    var showsTimerStrip: Bool { vm.timer.isActive && vm.isVisible(.timer) }
+
+    var railIconHeight: CGFloat {
+        geometry.railIconHeight(icons: max(vm.leftRail.count, vm.rightRail.count))
+    }
 
     /// Hover and click both land here. A tab that types takes the keyboard
     /// either way: showing a field one cannot type into is worse than briefly

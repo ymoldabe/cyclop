@@ -32,6 +32,7 @@ final class ConfigStore: ObservableObject {
         var teleprompter = Teleprompter()
         var hiddenTabs: [String] = []
         var fullSizeDrawnNotch = false
+        var drawnNotchMarker = false
 
         init() {}
 
@@ -49,6 +50,7 @@ final class ConfigStore: ObservableObject {
             teleprompter = try c.decodeIfPresent(Teleprompter.self, forKey: .teleprompter) ?? d.teleprompter
             hiddenTabs = try c.decodeIfPresent([String].self, forKey: .hiddenTabs) ?? d.hiddenTabs
             fullSizeDrawnNotch = try c.decodeIfPresent(Bool.self, forKey: .fullSizeDrawnNotch) ?? d.fullSizeDrawnNotch
+            drawnNotchMarker = try c.decodeIfPresent(Bool.self, forKey: .drawnNotchMarker) ?? d.drawnNotchMarker
         }
     }
 
@@ -97,6 +99,11 @@ final class ConfigStore: ObservableObject {
     var fullSizeDrawnNotch: Bool {
         get { value.fullSizeDrawnNotch }
         set { value.fullSizeDrawnNotch = newValue; persist() }
+    }
+
+    var drawnNotchMarker: Bool {
+        get { value.drawnNotchMarker }
+        set { value.drawnNotchMarker = newValue; persist() }
     }
 
     /// Off switch for people who copy images all day and do not want them

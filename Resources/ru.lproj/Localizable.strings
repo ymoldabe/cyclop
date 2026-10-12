@@ -137,3 +137,15 @@
 "Keyboard and trackpad are locked" = "Клавиатура и трекпад заблокированы";
 "Hold Esc or − for %d s" = "Держи Esc или − %d с";
 "Unlocks by itself in %d s" = "Само снимется через %d с";
+
+/* Вкладка таймера */
+"Timer" = "Таймер";
+"Focus" = "Фокус";
+"Break" = "Перерыв";
+"Long Break" = "Длинный перерыв";
+"%d min" = "%d мин";
+
+/* Вкладка звука */
+"Sound" = "Звук";
+"No output devices" = "Нет устройств вывода";
+"Show Notch Marker Without a Cutout" = "Метка чёлки на экранах без выреза";

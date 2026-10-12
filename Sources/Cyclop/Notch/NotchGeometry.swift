@@ -13,6 +13,7 @@ struct NotchGeometry {
     /// True when a notch we drew keeps the full menu bar height while
     /// collapsed, the way it used to. Off by default — see `collapsedDepth`.
     let drawsFullSize: Bool
+    let showsMarker: Bool
 
     /// Metrics of the tab rail that do not depend on the notch. `railIconHeight`
     /// is not among them — see below.
@@ -57,16 +58,16 @@ struct NotchGeometry {
         expandedSize.height - notchSize.height - Self.bodyBottomPadding
     }
 
-    /// Height each rail icon gets. A ceiling, not a constant: six icons at
-    /// the full 24 pt plus the five 4 pt gaps between them is 164 pt, and
-    /// the body only has `expandedSize.height − notchSize.height −
-    /// bodyBottomPadding` left to give the rail once the header — the notch
-    /// itself — and the padding beneath are taken out of the fixed 208.
-    /// Rounded down rather than to the nearest point: a rail that asks for
-    /// more than it is given should visibly yield, not overflow by a
-    /// fraction that clips it.
-    var railIconHeight: CGFloat {
-        let icons = CGFloat(NotchViewModel.Tab.leftRail.count)
+    /// Height each rail icon gets when the longer rail carries `count` icons.
+    /// A ceiling, not a constant: six icons at the full 24 pt plus the five
+    /// 4 pt gaps between them is 164 pt, and the body only has
+    /// `expandedSize.height − notchSize.height − bodyBottomPadding` left to
+    /// give the rail once the header — the notch itself — and the padding
+    /// beneath are taken out of the fixed 208. Rounded down rather than to the
+    /// nearest point: a rail that asks for more than it is given should
+    /// visibly yield, not overflow by a fraction that clips it.
+    func railIconHeight(icons count: Int) -> CGFloat {
+        let icons = CGFloat(max(count, 1))
         let available = expandedSize.height - notchSize.height - Self.bodyBottomPadding
         let ceiling = (available - (icons - 1) * Self.railSpacing) / icons
         return min(24, ceiling).rounded(.down)
@@ -108,6 +109,15 @@ struct NotchGeometry {
         }
     }
 
+    @MainActor
+    static var showsDrawnNotchMarker: Bool {
+        get { ConfigStore.shared.drawnNotchMarker }
+        set {
+            ConfigStore.shared.drawnNotchMarker = newValue
+            NotificationCenter.default.post(name: settingsChanged, object: nil)
+        }
+    }
+
     /// Every display the panel should stand on.
     ///
     /// Switched off, that is the screen with a physical notch if one is
@@ -120,14 +130,15 @@ struct NotchGeometry {
         // place, with a second pointer timer behind it.
         let screens = NSScreen.screens.filter { !$0.isMirroring }
         let fullSize = drawsFullSizeNotch
+        let marker = showsDrawnNotchMarker
         guard showsOnAllDisplays else {
             let primary = screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? screens.first
-            return primary.map { [current(on: $0, drawsFullSize: fullSize)] } ?? []
+            return primary.map { [current(on: $0, drawsFullSize: fullSize, showsMarker: marker)] } ?? []
         }
-        return screens.map { current(on: $0, drawsFullSize: fullSize) }
+        return screens.map { current(on: $0, drawsFullSize: fullSize, showsMarker: marker) }
     }
 
-    static func current(on screen: NSScreen, drawsFullSize: Bool) -> NotchGeometry {
+    static func current(on screen: NSScreen, drawsFullSize: Bool, showsMarker: Bool) -> NotchGeometry {
         if screen.safeAreaInsets.top > 0,
            let left = screen.auxiliaryTopLeftArea,
            let right = screen.auxiliaryTopRightArea {
@@ -137,7 +148,8 @@ struct NotchGeometry {
                 notchSize: CGSize(width: width, height: screen.safeAreaInsets.top),
                 notchCenterX: screen.frame.minX + left.width + width / 2,
                 isPhysical: true,
-                drawsFullSize: false
+                drawsFullSize: false,
+                showsMarker: true
             )
         }
 
@@ -159,7 +171,8 @@ struct NotchGeometry {
             notchSize: CGSize(width: 180, height: max(menuBarHeight, NSStatusBar.system.thickness, 24)),
             notchCenterX: screen.frame.midX,
             isPhysical: false,
-            drawsFullSize: drawsFullSize
+            drawsFullSize: drawsFullSize,
+            showsMarker: showsMarker
         )
     }
 
@@ -173,6 +186,7 @@ struct NotchGeometry {
             && notchCenterX == other.notchCenterX
             && isPhysical == other.isPhysical
             && drawsFullSize == other.drawsFullSize
+            && showsMarker == other.showsMarker
     }
 
     // MARK: - Derived frames
@@ -239,9 +253,10 @@ struct NotchGeometry {
     /// display had focus at the moment of the rebuild, so the same notch
     /// answered in its full height one time and in the top 8 points the next.
     ///
-    /// `drawsFullSize` brings the old notch back for anyone who wants it.
+    /// `drawsFullSize` brings the old notch back for anyone who wants it, as
+    /// long as the marker is shown at all — a hidden notch keeps the strip.
     var collapsedDepth: CGFloat {
-        isPhysical || drawsFullSize ? notchSize.height : Self.drawnStripDepth
+        isPhysical || (drawsFullSize && showsMarker) ? notchSize.height : Self.drawnStripDepth
     }
 
     /// See `collapsedDepth`.
@@ -249,6 +264,16 @@ struct NotchGeometry {
 
     /// Size of the collapsed notch: the hole itself, or the strip we draw.
     var collapsedSize: CGSize { CGSize(width: notchSize.width, height: collapsedDepth) }
+
+    var hidesWhenCollapsed: Bool { !isPhysical && !showsMarker }
+
+    static let timerWing: CGFloat = 56
+    static let compactTimerSize = CGSize(width: 48, height: 16)
+
+    var timerStripSize: CGSize {
+        if !isPhysical { return Self.compactTimerSize }
+        return CGSize(width: notchSize.width + 2 * Self.timerWing, height: notchSize.height)
+    }
 
     /// Hover target while collapsed, in global screen coordinates. Slightly
     /// taller than the notch so the panel opens just before the pointer lands.

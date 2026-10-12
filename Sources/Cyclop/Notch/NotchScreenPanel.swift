@@ -32,6 +32,9 @@ final class NotchScreenPanel {
     /// close outdates the one still in flight.
     private var openGeneration = 0
 
+    private static let closeDelay: TimeInterval = 0.05
+    private static let typingCloseDelay: TimeInterval = 2
+
     init(geometry: NotchGeometry, vm: NotchViewModel) {
         self.geometry = geometry
         self.vm = vm
@@ -197,7 +200,10 @@ final class NotchScreenPanel {
         state.$wantsKeyboard
             .removeDuplicates()
             .sink { [weak self] wants in
-                MainActor.assumeIsolated { self?.setKeyboard(wants) }
+                MainActor.assumeIsolated {
+                    self?.pointer.closeDelay = wants ? Self.typingCloseDelay : Self.closeDelay
+                    self?.setKeyboard(wants)
+                }
             }
             .store(in: &cancellables)
 
@@ -351,6 +357,11 @@ final class NotchScreenPanel {
         // is taller, and a rect cut for 208 would leave the bottom half of it
         // visible but untouchable.
         let size = open ? state.openBodySize : geometry.collapsedSize
+        if !open, geometry.hidesWhenCollapsed {
+            rootView.activeRect = .zero
+            pointer.interactiveRect = .zero
+            return
+        }
         var rect = geometry.contentRect(for: size)
         if open {
             // Slack so the concave shoulders stay grabbable. Never while
